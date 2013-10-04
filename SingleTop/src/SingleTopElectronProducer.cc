@@ -60,6 +60,7 @@
 #include "EgammaAnalysis/ElectronTools/interface/ElectronEffectiveArea.h"
 #include "PhysicsTools/SelectorUtils/interface/SimpleCutBasedElectronIDSelectionFunctor.h"
 
+#include "EgammaAnalysis/ElectronTools/interface/EcalIsolationCorrector.h"
 
 #include <vector>
 #include <memory>
@@ -126,6 +127,10 @@ void SingleTopElectronProducer::produce(edm::Event & iEvent, const edm::EventSet
     
   //  std::cout << "size before "<< initialElectrons->size()<< std::endl;
   
+  // Setup a corrector for electrons
+  EcalIsolationCorrector ecalIsoCorr(true);
+
+
   for(size_t i = 0; i < initialElectrons->size(); ++i){
     
     bool passes = true;
@@ -168,11 +173,14 @@ void SingleTopElectronProducer::produce(edm::Event & iEvent, const edm::EventSet
 
     // preselection to match the trigger condition
 
+    //float uncorrIso = el.dr03EcalRecHitSumEt();
+    float corrIso = ecalIsoCorr.correctForHLTDefinition(el, iEvent.id().run(), isData_);
+
     if(fabs(el.superCluster()->eta()) < 1.479) {
       if(el.sigmaIetaIeta() < 0.014 &&
 	 el.hadronicOverEm() < 0.15 &&
 	 el.dr03TkSumPt()/el.pt() < 0.2 &&
-	 el.dr03EcalRecHitSumEt()/el.pt() < 0.2 &&
+	 corrIso/el.pt() < 0.2 &&
 	 el.dr03HcalTowerSumEt()/el.pt() < 0.2 &&
 	 el.gsfTrack()->trackerExpectedHitsInner().numberOfLostHits() == 0)
 	 trigPresel = true;
@@ -181,7 +189,7 @@ void SingleTopElectronProducer::produce(edm::Event & iEvent, const edm::EventSet
       if(el.sigmaIetaIeta() < 0.035 &&
 	 el.hadronicOverEm() < 0.10 &&
 	 el.dr03TkSumPt()/el.pt() < 0.2 &&
-	 el.dr03EcalRecHitSumEt()/el.pt() < 0.2 &&
+	 corrIso/el.pt() < 0.2 &&
 	 el.dr03HcalTowerSumEt()/el.pt() < 0.2 &&
 	 el.gsfTrack()->trackerExpectedHitsInner().numberOfLostHits() == 0)
 	trigPresel = true;

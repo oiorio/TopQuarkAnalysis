@@ -11,8 +11,8 @@ process.options = cms.untracked.PSet(
     FailPath = cms.untracked.vstring('ProductNotFound','Type Mismatch')
     )
 
-process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(2) )
-#process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(-1) )
+#process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(20) )
+process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(-1) )
 
 ChannelName = "TChannel"
 
@@ -22,9 +22,8 @@ hermeticTopProjection = True
 process.source = cms.Source (
     "PoolSource",
     fileNames = cms.untracked.vstring (
-      "file:/afs/cern.ch/work/o/oiorio/public/xFrancescoFab/T_t-channel_Synch.root"
-#      "file:/data3/scratch/cms/mc/testsamples/T_t-channel_Synch.root"
-#    "file:/afs/cern.ch/work/o/oiorio/public/xFrancescoFab/DataReRecoA.root"
+#      "file:/afs/cern.ch/work/o/oiorio/public/xFrancescoFab/T_t-channel_Synch.root"
+      "file:8425E88A-AED7-E211-8067-002481E14F5C.root"
     ),
     duplicateCheckMode = cms.untracked.string('noDuplicateCheck')
 )
@@ -78,9 +77,13 @@ process.out = cms.OutputModule(
 # ---> PAT + Single top sequences <---
 process.load("PhysicsTools.PatAlgos.patSequences_cff") 
 
+### Filter on good vertices commented for tH analysis
 process.goodOfflinePrimaryVertices = cms.EDFilter( "PrimaryVertexObjectFilter" ,
                                                    filterParams = cms.PSet( minNdof = cms.double( 4. ) , maxZ = cms.double( 24. ) , maxRho = cms.double( 2. ) ) ,
-                                                   filter = cms.bool( True) , src = cms.InputTag( 'offlinePrimaryVertices' ) )
+#filter = cms.bool( True) , src = cms.InputTag( 'offlinePrimaryVertices' ) )
+filter = cms.bool( False) , src = cms.InputTag( 'offlinePrimaryVertices' ) )
+
+
 
 # Configure PAT to use PFBRECO instead of AOD sources
 # this function will modify the PAT sequences.
@@ -112,6 +115,7 @@ print sep_line
 
 usePF2PAT(process, runPF2PAT=True, jetAlgo=jetAlgoName, runOnMC=runOnMC, postfix=postfix,
           jetCorrections=('AK5PFchs',jetCorrections), pvCollection=cms.InputTag('goodOfflinePrimaryVertices'),
+          # jetCorrections=('AK5PFchs',jetCorrections), pvCollection=cms.InputTag('offlinePrimaryVertices'),
           typeIMetCorrections=isData)
 
 if (not(isData)):
@@ -127,15 +131,9 @@ process.pfIsolatedElectrons.isolationValueMapsCharged = cms.VInputTag(cms.InputT
 #process.pfIsolatedElectrons.deltaBetaIsolationValueMap = cms.InputTag("elPFIsoValuePU03PFId")
 process.pfIsolatedElectrons.isolationValueMapsNeutral = cms.VInputTag(cms.InputTag("elPFIsoValueNeutral03PFId"), cms.InputTag("elPFIsoValueGamma03PFId"))
 
-### ========================
-### HERMETIC TOP PROJECTION
-### ========================
-
-
-
 
     
-
+# Switch to GsfElectrons if required
 if doGsfElectrons:
     # Gsf Electrons
     # Use DR = 0.3:
@@ -148,6 +146,8 @@ if not(doGsfElectrons):
 process.pfPileUp.Enable = True
 process.pfPileUp.checkClosestZVertex = cms.bool(False)
 
+#Disable top projection for taus
+process.pfNoTau.enable = False
 
 # Prepare MVA electronId
 process.load("EgammaAnalysis.ElectronTools.electronIdMVAProducer_cfi")
@@ -161,13 +161,29 @@ process.electronIDSources = cms.PSet(
 
 process.patElectrons.electronIDSources = process.electronIDSources
 
+### Removing request of compatibility with the primary vertex
+### Because info on the impact parameter are used in the MVA ID
+### https://hypernews.cern.ch/HyperNews/CMS/get/egamma-elecid/72/1.html
+process.pfElectronsFromVertex.d0Cut = 9999.
+process.pfElectronsFromVertex.d0SigCut = 9999.
+process.pfElectronsFromVertex.dzCut = 9999.
+process.pfElectronsFromVertex.dzSigCut = 9999.
+
+process.pfMuonsFromVertex.d0Cut = 9999.
+process.pfMuonsFromVertex.d0SigCut = 9999.
+process.pfMuonsFromVertex.dzCut = 9999.
+process.pfMuonsFromVertex.dzSigCut = 9999.
 
 
+
+### ========================
+### HERMETIC TOP PROJECTION
+### ========================
 
 if(hermeticTopProjection):
 
     ### ELECTRONS
-    process.pfSelectedElectrons.cut = 'abs(eta)<2.5 && gsfElectronRef.pt>20. && gsfTrackRef.isNonnull && gsfTrackRef.trackerExpectedHitsInner.numberOfLostHits<2'
+    process.pfSelectedElectrons.cut = 'abs(eta)<2.5 && gsfElectronRef.pt>20. && gsfTrackRef.isNonnull '
     
     process.load("EGamma.EGammaAnalysisTools.electronIsolatorFromEffectiveArea_cfi")
 
@@ -177,7 +193,6 @@ if(hermeticTopProjection):
     process.pfIsolatedElectrons.isolationCut = 0.15
 
     process.patPF2PATSequence.replace( process.pfSelectedElectrons, process.patElectronIDs  + process.pfSelectedElectrons + process.elPFIsoValueEA03)
-    process.pfSelectedElectrons.cut = 'abs(eta)<2.5 && pt>20. && gsfTrackRef.isNonnull && gsfTrackRef.trackerExpectedHitsInner.numberOfLostHits<2'
     ###  same definition as for the veto electrons
     process.selectedPatElectrons.cut = ''' isPF && ecalDrivenMomentum.pt > 20 && abs(eta) < 2.5 && userFloat(\"RhoCorrectedIso\") <0.15'''
 
@@ -185,12 +200,13 @@ if(hermeticTopProjection):
 
     ### MUONS
     process.pfSelectedMuons.cut = 'abs(eta)<2.5 && pt>10.'
+#    process.pfSelectedMuons.cut = 'abs(eta)<2.5 && pt>10. && ( isGlobalMuon || isTrackerMuon )'
     process.pfIsolatedMuons.doDeltaBetaCorrection = True
     process.pfIsolatedMuons.deltaBetaFactor = -0.5
     process.pfIsolatedMuons.isolationCut = 0.2
     
     process.patMuons.embedTrack = True
-    process.patMuons.usePV = False
+    #process.patMuons.usePV = False
     ###  same definition as for the veto muons
     process.selectedPatMuons.cut = '''abs(eta)<2.5 && pt>10. &&
     (chargedHadronIso+max(0.,neutralHadronIso+photonIso-0.50*puChargedHadronIso))/pt < 0.20 &&
@@ -266,14 +282,14 @@ process.vetoMuons = process.userDataMuons.clone(
 process.vetoElectrons = process.userDataElectrons.clone(
     cut = cms.string("ecalDrivenMomentum.pt > 20 " +
                      "& abs(eta) < 2.5 " +
-                     "& userFloat(\"RhoCorrectedIso\") <0.15" +
-                     "& userFloat(\"PassesVetoID\") >0.0")
+                     "& userFloat(\"RhoCorrectedIso\") <0.15")# +
+                    # "& userFloat(\"PassesVetoID\") >0.0")
 )
 
 process.vetoElectronsMVA = process.userDataElectrons.clone(
     cut =  cms.string(" ecalDrivenMomentum.pt > 20" +
-                      "& abs(eta) < 2.5 && userFloat(\"RhoCorrectedIso\") <0.15" +
-                      "& electronID('mvaTrigV0') >0.0")
+                      "& abs(eta) < 2.5 && userFloat(\"RhoCorrectedIso\") <0.15")# +
+                    #  "& electronID('mvaTrigV0') >0.0")
 )
 
 # Tight leptons
@@ -281,7 +297,8 @@ process.tightMuons = process.userDataMuons.clone(
     cut = cms.string(" pt > 26 & isGlobalMuon && isPFMuon & abs(eta) < 2.1 && normChi2 < 10 && track.hitPattern.trackerLayersWithMeasurement>5 "+
                      "& numberOfMatchedStations() > 1 && innerTrack.hitPattern.numberOfValidPixelHits > 0 " +
                      "& globalTrack.hitPattern.numberOfValidMuonHits > 0" +
-                     "& userFloat('VertexDxy')<0.02" +
+                     #                     "& userFloat('VertexDxy')<0.02" +
+                     "& abs(dB) < 0.2"
                      "& userFloat('VertexDz')<0.5" +
                      "& userFloat(\"DeltaCorrectedIso\") <0.12 " )
 )
@@ -291,7 +308,7 @@ process.tightElectrons = process.userDataElectrons.clone(
                       "& ( abs(superCluster.eta)> 1.5660 || abs(superCluster.eta)<1.4442)" +
                       "& gsfTrack.trackerExpectedHitsInner.numberOfHits <=0" +
                       "& passConversionVeto" +
-                      "& userFloat('VertexDxy')<0.02" +
+                      #"& userFloat('VertexDxy')<0.02" +
                       "& userFloat('RhoCorrectedIso')<0.1" )
 )
 
@@ -315,9 +332,9 @@ process.load("TopQuarkAnalysis.SingleTop.leptonCounterFilter_cfi")
 # Select events with at least 1 tight lepton OR at least one tight leptonNoIso
 process.countLeptons.minNumberLoose = 0
 process.countLeptons.maxNumberLoose = 99
-process.countLeptons.minNumberTight = 1
+process.countLeptons.minNumberTight = 0
 process.countLeptons.maxNumberTight = 99
-process.countLeptons.minNumberQCD = 1
+process.countLeptons.minNumberQCD = 0
 process.countLeptons.maxNumberQCD = 99
 
 # define Jets for single top analysis
@@ -326,10 +343,11 @@ process.load("TopQuarkAnalysis.SingleTop.userDataJetsProducer_cfi")
 process.load("TopQuarkAnalysis.SingleTop.userDataMETsProducer_cfi") 
 
 #definition: Jets Loose
-process.topJetsPF.cut = cms.string("numberOfDaughters()>1 & pt()> 20 && abs(eta())<5 " +
+process.topJetsPF.cut = cms.string("numberOfDaughters()>1 & pt()> 20 && abs(eta())<4.7 " +
                                    " & ((abs(eta())>=2.4) || ( chargedHadronEnergyFraction() > 0 & chargedMultiplicity()>0 " +
                                    " & chargedEmEnergyFraction()<0.99))" +
-                                   " & neutralEmEnergyFraction() < 0.99 & neutralHadronEnergyFraction() < 0.99 ")
+                                   " & (neutralHadronEnergy + HFHadronEnergy) / energy < 0.99" )
+                                   #neutralEmEnergyFraction() < 0.99 & neutralHadronEnergyFraction() < 0.99 ")
 
 process.UnclusteredMETPF = cms.EDProducer("SingleTopUnclusteredMETProducer",
                                   metSource = cms.InputTag("patType1CorrectedPFMet"),
@@ -419,6 +437,8 @@ process.fullPath = cms.Schedule(
 #Objects included in the pat-tuples
 savePatTupleSkimLoose = cms.untracked.vstring(
     'drop *',
+    'keep *_*Muons_*_*',
+    'keep *_pfMuonsFromVertex_*_*',
     'keep patMuons_selectedPatMuons_*_*',
     'keep patElectrons_selectedPatElectrons_*_*',
     'keep patJets_selectedPatJets_*_*',
@@ -455,11 +475,11 @@ savePatTupleSkimLoose = cms.untracked.vstring(
 process.singleTopPatTuple = cms.OutputModule(
     "PoolOutputModule",
     fileName = cms.untracked.string('singleTopSkim_'+ChannelName+'.root'),
-    SelectEvents   = cms.untracked.PSet(
-      SelectEvents = cms.vstring(
-        'preselection')
+#    SelectEvents   = cms.untracked.PSet(
+#      SelectEvents = cms.vstring(
+#        'preselection')
 #        'pathSelection')
-      ),
+#      ),
     outputCommands = savePatTupleSkimLoose
     )
 process.singleTopPatTuple.dropMetaData = cms.untracked.string("DROPPED")
@@ -543,7 +563,6 @@ if doMCTruth:
     saveNTuplesSkimLoose.append('keep  floats_singleTopMCTopsNeutrino_*_*')
     saveNTuplesSkimLoose.append('keep  floats_singleTopMCTopsQuark_*_*')
     saveNTuplesSkimLoose.append('keep  floats_singleTopMCTopsQuarkBar_*_*')
-                                                            
     #Higgs
     saveNTuplesSkimLoose.append('keep  floats_singleTopMCHiggs_*_*')
     saveNTuplesSkimLoose.append('keep  floats_singleTopMCHiggsBQuark_*_*')
@@ -553,7 +572,7 @@ if doMCTruth:
 process.singleTopNTupleOut = cms.OutputModule(
     "PoolOutputModule",
     fileName = cms.untracked.string('singleTopEdmNtuple_'+ChannelName+'.root'),
-    SelectEvents   = cms.untracked.PSet( SelectEvents = cms.vstring('preselection')),
+    #SelectEvents   = cms.untracked.PSet( SelectEvents = cms.vstring('preselection')),
     outputCommands = saveNTuplesSkimLoose,
     )
 

@@ -19,7 +19,7 @@ process.options   = cms.untracked.PSet( wantSummary = cms.untracked.bool(True) )
 process.source = cms.Source("PoolSource")
 
 ### Indicate here the input file
-process.source.fileNames=cms.untracked.vstring('file:SingleTopEdmNtuple_TChannel.root')
+process.source.fileNames=cms.untracked.vstring('file:singleTopEdmNtuple_TChannel.root')
 #process.source.fileNames=cms.untracked.vstring('file:edmNtupleTest.root')
 
 ### Indicate here the number of events on which perform the selection
@@ -64,7 +64,7 @@ process.triggerElFilter = cms.Path(
 
 process.MuedmNtuplesOut = cms.OutputModule(
     "PoolOutputModule",
-    fileName = cms.untracked.string('muSingleTop_edmntuples.root'),
+    fileName = cms.untracked.string('mu_edmntuples.root'),
     outputCommands = cms.untracked.vstring(
     "keep *",
     "drop *_TriggerResults_*_PAT",
@@ -74,7 +74,7 @@ process.MuedmNtuplesOut = cms.OutputModule(
 
 process.EledmNtuplesOut = cms.OutputModule(
     "PoolOutputModule",
-    fileName = cms.untracked.string('elSingle_edmntuples.root'),
+    fileName = cms.untracked.string('el_edmntuples.root'),
     outputCommands = cms.untracked.vstring(
     "keep *",
     "drop *_TriggerResults_*_PAT",
