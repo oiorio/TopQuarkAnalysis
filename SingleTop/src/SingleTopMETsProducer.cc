@@ -165,7 +165,7 @@ void SingleTopMETsProducer::produce(edm::Event & iEvent, const edm::EventSetup &
 	}
 	if (isPF_){
 	  
-	  std::cout << " metx "<<met.px()<< " mety "<< met.py() << std::endl;
+	  //	  std::cout << " metx "<<met.px()<< " mety "<< met.py() << std::endl;
 	  for ( edm::View<reco::Candidate>::const_iterator cand = pfCandsNotInJet->begin();
 		 cand !=  pfCandsNotInJet->end(); ++cand ) {
 
@@ -174,8 +174,8 @@ void SingleTopMETsProducer::produce(edm::Event & iEvent, const edm::EventSetup &
 	    uncl_down_metx -= 0.1*cand->px();
 	    uncl_down_mety -= 0.1*cand->py();
 
-	    std::cout << " unclup_metx cand "<<uncl_up_metx<< std::endl;
-	    std::cout << " unclup_mety cand "<<uncl_up_mety<< std::endl;
+	    //	    std::cout << " unclup_metx cand "<<uncl_up_metx<< std::endl;
+	    //	    std::cout << " unclup_mety cand "<<uncl_up_mety<< std::endl;
 	    //	    += cand->et();
 	  }     
 	}
@@ -193,8 +193,8 @@ void SingleTopMETsProducer::produce(edm::Event & iEvent, const edm::EventSetup &
 	  uncl_down_metx -= ((0.1)*jet.p4()).px();
 	  uncl_down_mety -= ((0.1)*jet.p4()).py();
 	  
-	  std::cout << " unclup_metx jet "<<uncl_up_metx<< " jet px "<< ((1.)*jet.p4()).px() <<std::endl;
-	  std::cout << " unclup_mety jet "<<uncl_up_mety<< " jet py "<< ((1.)*jet.p4()).py() <<std::endl;
+	  //	  std::cout << " unclup_metx jet "<<uncl_up_metx<< " jet px "<< ((1.)*jet.p4()).px() <<std::endl;
+	  //	  std::cout << " unclup_mety jet "<<uncl_up_mety<< " jet py "<< ((1.)*jet.p4()).py() <<std::endl;
 	}
 	continue;
       }
@@ -258,7 +258,7 @@ void SingleTopMETsProducer::produce(edm::Event & iEvent, const edm::EventSetup &
       //      uncl_up_metx=met.px()+0.1*uncl_up_metx;
       //uncl_up_mety=met.py()+0.1*uncl_up_mety;
 
-      std::cout<< " now unclupx "<< uncl_up_metx << " unclupy "<< uncl_up_mety << std::endl; 
+      //      std::cout<< " now unclupx "<< uncl_up_metx << " unclupy "<< uncl_up_mety << std::endl; 
 
     }
 
