@@ -65,10 +65,20 @@ SingleTopMETsProducer::SingleTopMETsProducer(const edm::ParameterSet& iConfig)
   isData_                 = iConfig.getUntrackedParameter< bool >	      ( "isData" ,false);
   
   JESUncertaintiesPath_ = iConfig.getParameter< edm::FileInPath >("JESUncertaintiesPath");
+
+  jetsSrc_ = iConfig.getParameter<edm::InputTag>("jetsSrc");
   
   electronsSrc_ = iConfig.getParameter<edm::InputTag>("electronsSrc");
-  jetsSrc_ = iConfig.getParameter<edm::InputTag>("jetsSrc");
   muonsSrc_ = iConfig.getParameter<edm::InputTag>("muonsSrc");
+  photonsSrc_ = iConfig.getParameter<edm::InputTag>("photonsSrc");
+  tausSrc_ = iConfig.getParameter<edm::InputTag>("tausSrc");
+
+  pfCandsNotInJetSrc_ = iConfig.getParameter<edm::InputTag>("pfCandsNotInJetSrc");
+  
+  addExternalUnclusteredMET_ = iConfig.getUntrackedParameter< bool >             ( "addExternalUnclusteredMET" ,false);
+
+  isReco_ = iConfig.getUntrackedParameter< bool >             ( "isReco" ,false);
+  isPF_ = iConfig.getUntrackedParameter< bool >             ( "isPF" ,true);
   
   produces<std::vector<pat::MET> >();
 
@@ -79,14 +89,31 @@ SingleTopMETsProducer::SingleTopMETsProducer(const edm::ParameterSet& iConfig)
 }
 
 void SingleTopMETsProducer::produce(edm::Event & iEvent, const edm::EventSetup & iEventSetup){
-  
-  
+    
   iEvent.getByLabel(metsSrc_,mets);
-  if(!isData_){
+  if(mets->size()!=1){std::cout<<" not exactly 1 met: possible problem in configuration, metx mety not reliable!!!"<<std::endl; 
+  }
+  
+  if(addExternalUnclusteredMET_){  
     iEvent.getByLabel(metsUnclUpSrc_,metsUnclUp);
     iEvent.getByLabel(metsUnclDownSrc_,metsUnclDown);
-    iEvent.getByLabel(electronsSrc_,electrons);
-    iEvent.getByLabel(muonsSrc_,muons); 
+  }
+  else{
+    iEvent.getByLabel(metsSrc_,metsUnclUp);
+    iEvent.getByLabel(metsSrc_,metsUnclDown);
+    
+    if(isReco_){
+      
+      iEvent.getByLabel(electronsSrc_,electrons);
+      iEvent.getByLabel(muonsSrc_,muons); 
+      iEvent.getByLabel(photonsSrc_,photons);
+      iEvent.getByLabel(tausSrc_,taus); 
+    }    
+    
+    if(isPF_){
+      iEvent.getByLabel(pfCandsNotInJetSrc_,pfCandsNotInJet);
+    }
+
   }
   iEvent.getByLabel(jetsSrc_,jets);
    
@@ -95,10 +122,9 @@ void SingleTopMETsProducer::produce(edm::Event & iEvent, const edm::EventSetup &
   std::auto_ptr< std::vector< pat::MET > > finalMETs(new std::vector< pat::MET >);
   
 
-  if(mets->size()!=1)std::cout<<" not exactly 1 met: possible problem in configuration, metx mety not reliable!!!"<<std::endl; 
+  
   if(!isData_)if(metsUnclUp->size()!=1 )std::cout<<" not exactly 1 met: possible problem in configuration, uncl up metx mety not reliable!!!"<<std::endl; 
   if(!isData_)if(metsUnclDown->size()!=1 )std::cout<<" not exactly 1 met: possible problem in configuration, uncl down metx mety not reliable!!! "<<std::endl; 
-
   
   for(size_t i = 0; i < mets->size(); ++i){
     //    pat::Jet & jet = (*initialJets)[i];
@@ -121,19 +147,57 @@ void SingleTopMETsProducer::produce(edm::Event & iEvent, const edm::EventSetup &
       if(metsUnclUp->size() <=mets->size()) { uncl_up_metx=metsUnclUp->at(i).px(); uncl_up_mety=metsUnclUp->at(i).py();}
       if(metsUnclDown->size() <=mets->size()) { uncl_down_metx=metsUnclDown->at(i).px(); uncl_down_mety=metsUnclDown->at(i).py();}
       //    std::cout << " metx "<<  metx << " uncl up size "<< metsUnclUp->size() <<" uncl_up_metx " << uncl_up_metx<< std::endl; 
-      for(size_t m = 0; m < muons->size(); ++m){
-	;
+      if(!addExternalUnclusteredMET_){
+	if (isReco_){
+
+	  for(size_t m = 0; m < muons->size(); ++m){
+	    ;
+	  }
+	  for(size_t e = 0; e < electrons->size(); ++e){
+	    ;
+	  }
+	  for(size_t ph = 0; ph < photons->size(); ++ph){
+	    ;
+	  }
+	  for(size_t ta = 0; ta < taus->size(); ++ta){
+	    ;
+	  }
+	}
+	if (isPF_){
+	  
+	  std::cout << " metx "<<met.px()<< " mety "<< met.py() << std::endl;
+	  for ( edm::View<reco::Candidate>::const_iterator cand = pfCandsNotInJet->begin();
+		 cand !=  pfCandsNotInJet->end(); ++cand ) {
+
+	    uncl_up_metx += 0.1*cand->px();
+	    uncl_up_mety += 0.1*cand->py();
+	    uncl_down_metx -= 0.1*cand->px();
+	    uncl_down_mety -= 0.1*cand->py();
+
+	    std::cout << " unclup_metx cand "<<uncl_up_metx<< std::endl;
+	    std::cout << " unclup_mety cand "<<uncl_up_mety<< std::endl;
+	    //	    += cand->et();
+	  }     
+	}
       }
-      for(size_t e = 0; e < electrons->size(); ++e){
-	;
-      }
-      
       for(size_t j = 0; j < jets->size(); ++j){
       pat::Jet & jet = (*initialJets)[j];
       
       float ptCorr = jet.pt(), genpt=-1;
-      if(ptCorr<10)continue;
-
+      if(ptCorr<10){
+	
+	if(!addExternalUnclusteredMET_){
+	  uncl_up_metx += ((0.1)*jet.p4()).px();
+	  uncl_up_mety += ((0.1)*jet.p4()).py();
+	  
+	  uncl_down_metx -= ((0.1)*jet.p4()).px();
+	  uncl_down_mety -= ((0.1)*jet.p4()).py();
+	  
+	  std::cout << " unclup_metx jet "<<uncl_up_metx<< " jet px "<< ((1.)*jet.p4()).px() <<std::endl;
+	  std::cout << " unclup_mety jet "<<uncl_up_mety<< " jet py "<< ((1.)*jet.p4()).py() <<std::endl;
+	}
+	continue;
+      }
             
 
       if(jet.genJet()==0) {
@@ -158,12 +222,11 @@ void SingleTopMETsProducer::produce(edm::Event & iEvent, const edm::EventSetup &
 
       //      std::cout << "metPt "<< met.pt() << " corr x "<< (smear*jet.p4()).px() << std::endl; 
       
-      uncl_up_metx += (smear*jet.p4()).px();
-      uncl_up_mety += (smear*jet.p4()).py();
-
-      uncl_down_metx += (smear*jet.p4()).px();
-      uncl_down_mety += (smear*jet.p4()).py();
       
+
+      
+
+
       jer_up_metx += (smearUp*jet.p4()).px();
       jer_up_mety += (smearUp*jet.p4()).py();
       
@@ -181,11 +244,26 @@ void SingleTopMETsProducer::produce(edm::Event & iEvent, const edm::EventSetup &
       
       jes_up_metx -= (ptCorr * cos(jphi)) * unc; 
       jes_down_metx -= -(ptCorr * cos(jphi)) * unc; 
+
+
       
-    }
+      }
+
+      //      met.addUserFloat("met_px_not_in_jet",uncl_down_metx);
+      //met.addUserFloat("met_py_not_in_jet",uncl_down_mety);
     
+      //      uncl_down_metx=met.px()-0.1*uncl_down_metx;
+      //uncl_down_mety=met.py()-0.1*uncl_down_mety;
+
+      //      uncl_up_metx=met.px()+0.1*uncl_up_metx;
+      //uncl_up_mety=met.py()+0.1*uncl_up_mety;
+
+      std::cout<< " now unclupx "<< uncl_up_metx << " unclupy "<< uncl_up_mety << std::endl; 
 
     }
+
+  
+
 
     reco::Candidate::LorentzVector originalP4(met.p4());
     reco::Candidate::LorentzVector jerP4(jer_metx,jer_mety,met.p4().pz(),sqrt(jer_metx*jer_metx+jer_mety*jer_mety));
@@ -202,6 +280,8 @@ void SingleTopMETsProducer::produce(edm::Event & iEvent, const edm::EventSetup &
  
     
     //std::cout << " met pt " << met.pt() << " met phi " << met.phi()<< " met  eta " << met.eta()<< " met e "<< met.energy() <<std::endl; 
+
+    
     met.addUserFloat("pt_no_jer",met.pt());
     met.addUserFloat("phi_no_jer",met.phi());
     

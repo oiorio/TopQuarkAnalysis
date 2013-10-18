@@ -39,10 +39,11 @@
 #include "DataFormats/PatCandidates/interface/Jet.h"
 #include "DataFormats/PatCandidates/interface/Electron.h"
 #include "DataFormats/PatCandidates/interface/Muon.h"
+#include "DataFormats/PatCandidates/interface/Tau.h"
+#include "DataFormats/PatCandidates/interface/Photon.h"
 
 #include "DataFormats/PatCandidates/interface/UserData.h"
 #include "PhysicsTools/PatAlgos/interface/PATUserDataHelper.h"
-
 
 #include "DataFormats/PatCandidates/interface/Lepton.h"
 #include "DataFormats/PatCandidates/interface/Electron.h"
@@ -53,6 +54,8 @@
 #include "DataFormats/PatCandidates/interface/PATObject.h"
 
 #include "DataFormats/Candidate/interface/NamedCompositeCandidate.h"
+#include "DataFormats/Common/interface/View.h"
+
 
 #include "CommonTools/Utils/interface/StringObjectFunction.h"
 #include "CommonTools/Utils/interface/StringCutObjectSelector.h"
@@ -83,17 +86,21 @@
     //       static void fillDescriptions(edm::ConfigurationDescriptions & descriptions);
     private:
   
-    edm::InputTag   metsSrc_,  metsUnclUpSrc_, metsUnclDownSrc_, jetsSrc_,  electronsSrc_, muonsSrc_;
+    edm::InputTag   metsSrc_,  metsUnclUpSrc_, metsUnclDownSrc_, jetsSrc_,  electronsSrc_, muonsSrc_, photonsSrc_, tausSrc_, pfCandsNotInJetSrc_;
     
     edm::Handle<std::vector<pat::MET> > mets,metsUnclUp,metsUnclDown;
     edm::Handle<std::vector<pat::Jet> > jets;
+    edm::Handle<std::vector<pat::Tau> > taus;
+    edm::Handle<std::vector<pat::Photon> > photons;
     edm::Handle<std::vector<pat::Electron> > electrons;
     edm::Handle<std::vector<pat::Muon> > muons;
+
+    edm::Handle<edm::View<reco::Candidate> > pfCandsNotInJet;
     
     JetCorrectionUncertainty *jecUnc;
     edm::FileInPath JESUncertaintiesPath_;
     
-    bool isData_;
+    bool isData_, addExternalUnclusteredMET_,isReco_,isPF_;
     
     double resolSF(double eta, std::string syst);
     

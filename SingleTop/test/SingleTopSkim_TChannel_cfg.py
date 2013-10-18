@@ -12,33 +12,43 @@ process.options = cms.untracked.PSet(
     )
 
 #process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(20) )
-process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(-1) )
+process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(2000) )
+#process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(-1) )
 
 ChannelName = "TChannel"
 
-hermeticTopProjection = True
+#Data or MC:
+isData=False
 
 #Input file:
 process.source = cms.Source (
     "PoolSource",
     fileNames = cms.untracked.vstring (
-#      "file:/afs/cern.ch/work/o/oiorio/public/xFrancescoFab/T_t-channel_Synch.root"
-      "file:8425E88A-AED7-E211-8067-002481E14F5C.root"
+      "file:/afs/cern.ch/work/o/oiorio/public/xFrancescoFab/T_t-channel_Synch.root"
+#      "file:/afs/cern.ch/work/o/oiorio/public/xFrancescoFab/DataReRecoA.root"
+#      "file:8425E88A-AED7-E211-8067-002481E14F5C.root"
     ),
     duplicateCheckMode = cms.untracked.string('noDuplicateCheck')
 )
 
-process.MessageLogger.cerr.FwkReport.reportEvery = 100
+if isData: process.source.fileNames= cms.untracked.vstring ( "file:/afs/cern.ch/work/o/oiorio/public/xFrancescoFab/DataReRecoA.root" )
 
-#Data or MC:
-isData = False
+#process.MessageLogger.cerr.FwkReport.reportEvery = 100
+
+#Include the hermetic top projection: 
+hermeticTopProjection=True
 
 #Gsf electron or PF electron: 
-doGsfElectrons = False
+doGsfElectrons=False
 
 #Add nJ >= 2 cut: 
-addJetsCut = True 
+addJetsCut=True 
 
+#Run JetMET uncertainties from JME tool
+doRunMETUncertainties=True
+
+#Enable PF taus (true = default: adds the PF tau objects;false = embed them in jets)
+EnablePFTaus=False
 
 #Geometry:
 process.load("Configuration.Geometry.GeometryIdeal_cff")
@@ -47,7 +57,8 @@ process.load("Configuration.StandardSequences.MagneticField_AutoFromDBCurrent_cf
 
 #Tag:
 ### new GT - 10Sept2013
-process.GlobalTag.globaltag = cms.string('START53_V27::All')
+if isData:  process.GlobalTag.globaltag = cms.string('FT53_V21A_AN6::All')
+else: process.GlobalTag.globaltag = cms.string('START53_V27::All')
 #process.GlobalTag.globaltag = cms.string('FT_53_V6C_AN3::All')
 
 
@@ -116,12 +127,25 @@ print sep_line
 usePF2PAT(process, runPF2PAT=True, jetAlgo=jetAlgoName, runOnMC=runOnMC, postfix=postfix,
           jetCorrections=('AK5PFchs',jetCorrections), pvCollection=cms.InputTag('goodOfflinePrimaryVertices'),
           # jetCorrections=('AK5PFchs',jetCorrections), pvCollection=cms.InputTag('offlinePrimaryVertices'),
-          typeIMetCorrections=isData)
+          typeIMetCorrections=(not doRunMETUncertainties))
 
-if (not(isData)):
+if doRunMETUncertainties:
     from PhysicsTools.PatUtils.tools.metUncertaintyTools import runMEtUncertainties
-    runMEtUncertainties(process,electronCollection = "selectedPatElectrons", doSmearJets= False, muonCollection = "selectedPatMuons", tauCollection="selectedPatTaus", jetCollection = "selectedPatJets")
-#Note: we run the MET uncertainty tools if it is MC. If it is data, the type 1 corrected METs
+    if isData:
+        runMEtUncertainties(process,electronCollection = "selectedPatElectrons", doSmearJets= False, muonCollection = "selectedPatMuons", tauCollection="selectedPatTaus", jetCollection = "selectedPatJets",jetCorrLabel="L2L3Residual")
+        process.patPFMet.addGenMET = False
+        process.patPFMetJetEnUp.addGenMET = False
+        process.patPFMetJetEnDown.addGenMET = False
+        process.patPFMetElectronEnUp.addGenMET = False
+        process.patPFMetElectronEnDown.addGenMET = False
+        process.patPFMetMuonEnUp.addGenMET = False
+        process.patPFMetMuonEnDown.addGenMET = False
+        process.patPFMetTauEnUp.addGenMET = False
+        process.patPFMetTauEnDown.addGenMET = False
+        process.patPFMetTauEnUp.addGenMET = False
+        process.patPFMetTauEnDown.addGenMET = False
+    else:
+        runMEtUncertainties(process,electronCollection = "selectedPatElectrons", doSmearJets= False, muonCollection = "selectedPatMuons", tauCollection="selectedPatTaus", jetCollection = "selectedPatJets",)
 
 # CONFIGURE LEPTONS for the analysis
 
@@ -147,7 +171,7 @@ process.pfPileUp.Enable = True
 process.pfPileUp.checkClosestZVertex = cms.bool(False)
 
 #Disable top projection for taus
-process.pfNoTau.enable = False
+process.pfNoTau.enable = EnablePFTaus
 
 # Prepare MVA electronId
 process.load("EgammaAnalysis.ElectronTools.electronIdMVAProducer_cfi")
@@ -359,21 +383,36 @@ process.UnclusteredMETPF = cms.EDProducer("SingleTopUnclusteredMETProducer",
 
 process.topJetsPF.isData = isData
 process.topMETsPF.isData = isData
-if isData: 
+process.topMETsPF.addExternalUnclusteredMET = doRunMETUncertainties
+if (not doRunMETUncertainties): 
     process.topMETsPF.metsSrc = cms.InputTag("patMETs")
 
-process.basePath = cms.Sequence(
-    process.vetoMuons +
-    process.vetoElectrons +
-    process.vetoElectronsMVA +
-    process.topJetsPF +
-    process.topMETsPF +
-    process.UnclusteredMETPF +
-    process.tightMuonsZeroIso +
-    process.tightElectronsZeroIso +
-    process.tightMuons +
-    process.tightElectrons
-)
+if isData:
+    process.basePath = cms.Sequence(
+        process.vetoMuons +
+        process.vetoElectrons +
+        process.vetoElectronsMVA +
+        process.topJetsPF +
+        process.topMETsPF +
+        process.tightMuonsZeroIso +
+        process.tightElectronsZeroIso +
+        process.tightMuons +
+        process.tightElectrons
+    )
+
+else:    
+    process.basePath = cms.Sequence(
+        process.vetoMuons +
+        process.vetoElectrons +
+        process.vetoElectronsMVA +
+        process.topJetsPF +
+        process.topMETsPF +
+        process.UnclusteredMETPF +
+        process.tightMuonsZeroIso +
+        process.tightElectronsZeroIso +
+        process.tightMuons +
+        process.tightElectrons
+    )
 
 #Trigger filter to be eventually used:
 import HLTrigger.HLTfilters.triggerResultsFilter_cfi as triggerFilter
@@ -381,8 +420,8 @@ import HLTrigger.HLTfilters.triggerResultsFilter_cfi as triggerFilter
 process.HLTFilterMu2012  = triggerFilter.triggerResultsFilter.clone(
     hltResults = cms.InputTag( "TriggerResults","","HLT" ),
     triggerConditions = ["HLT_*"],#All trigger paths are included in the skim
-#   triggerConditions = ["HLT_IsoMu24_eta2p1_v*"],
-#   triggerConditions = ["HLT_Ele27_WP80_v*"],
+#    triggerConditions = ["HLT_IsoMu24_eta2p1_v*"],
+#    triggerConditions = ["HLT_Ele27_WP80_v*"],
     l1tResults = '',
     throw = False
     )
