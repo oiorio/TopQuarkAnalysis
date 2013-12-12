@@ -1,6 +1,7 @@
 #Setting up the correct directory:
 cd $CMSSW_BASE/src
 
+
 #Loading all packages:
 addpkg DataFormats/PatCandidates V06-05-06-12
 addpkg PhysicsTools/PatAlgos     V08-09-62
